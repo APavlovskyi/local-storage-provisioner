@@ -1,0 +1,13 @@
+--- #Master Playbook
+ - name: Create Additional Volumes for VM's on OpenStack
+   hosts: localhost
+   gather_facts: no
+
+ - import_playbook: create_disks.yaml 
+
+ - name: Format Disks, Create VG and LV, Mount Disks
+   hosts: dbnodes
+   gather_facts: yes
+
+- import_playbook: format_disks.yaml
+- import_playbook: mount_disks.yaml

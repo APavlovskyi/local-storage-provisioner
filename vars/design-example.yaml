@@ -1,0 +1,42 @@
+---
+storage_class: somenamesc
+sc_shortname: sn
+cloud: sandpit
+
+servers:
+- servername: appname-sitename-ocpdb01.example.com
+  localstorage:
+   - volumes: vdd
+     volume_size: 100
+     path: /disk01
+   - volumes: vde
+     volume_size: 100
+     path: /disk02
+   - volumes: vdf
+     volume_size: 100
+     path: /disk03
+   - volumes: vdg
+     volume_size: 100
+     path: /disk04
+   - volumes: vdh
+     volume_size: 100
+     path: /disk05
+- servername: appname-sitename-ocpdb02.example.com
+  localstorage:
+   - volumes: vdd
+     volume_size: 150
+     path: /disk06
+   - volumes: vde
+     volume_size: 150
+     path: /disk07
+   - volumes: vdf
+     volume_size: 150
+     path: /disk08
+- servername: appname-sitename-ocpdb03.example.com
+  localstorage:
+   - volumes: vdd
+     volume_size: 50
+     path: /disk09
+   - volumes: vde
+     volume_size: 50
+     path: /disk10

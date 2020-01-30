@@ -1,0 +1,71 @@
+---
+ - name: Format Volumes for Local Storage
+   hosts: all
+   become: true
+   tasks:
+     - name: Include Design Variable file
+       include_vars: vars/design.yaml
+
+
+     - name: Format disk for LVM
+############Get device from variable file
+       parted:
+         device: "/dev/{{item.1.volumes}}"
+         label: gpt
+         number: 1
+         flags: [ lvm ]
+         state: present
+         part_end: 100%
+       with_subelements:
+         - "{{ servers }}"
+         - localstorage
+       when: 
+         - ansible_devices.{{item.1.volumes}} is defined
+         - ansible_devices.{{item.1.volumes}}.partitions.{{item.1.volumes}}1 is not defined
+         - inventory_hostname == "{{item.0.servername}}"
+
+     - name: Refresh host facts
+       setup: 
+
+     - name: Create a volume group on /dev/vdX drives
+#        msg: "Create VG name by pattern [Storage Class shortname + additional volume index + cont-vg"
+       lvg:
+         vg: "{{sc_shortname}}{{ ((servers | selectattr('servername', 'match', item.0.servername) | map (attribute='localstorage') | list ).0 | map (attribute='volumes')|list).index(item.1.volumes) + 1}}cont-vg"
+         pvs: "/dev/{{item.1.volumes}}1"
+       with_subelements:
+         - "{{ servers }}"
+         - localstorage
+###########For when check i have added checking ansible_devices.volume.partitions.holders to skip play if LV is created. 
+       when:
+         - ansible_devices.{{item.1.volumes}} is defined
+         - ansible_devices.{{item.1.volumes}}.partitions.{{item.1.volumes}}1 is defined
+         - (ansible_devices.{{item.1.volumes}}.partitions.{{item.1.volumes}}1.holders | length) == 0
+         - inventory_hostname == "{{item.0.servername}}"
+
+     - name: Create a logical volume at VGs
+       lvol:
+         vg: "{{sc_shortname}}{{ ((servers | selectattr('servername', 'match', item.0.servername) | map (attribute='localstorage') | list ).0 | map (attribute='volumes')|list).index(item.1.volumes) + 1}}cont-vg"
+         lv:  "{{sc_shortname}}{{ ((servers | selectattr('servername', 'match', item.0.servername) | map (attribute='localstorage') | list ).0 | map (attribute='volumes')|list).index(item.1.volumes) + 1}}cont-lv"
+         size: '100%FREE'
+       with_subelements:
+         - "{{ servers }}"
+         - localstorage
+       when:
+         - ansible_devices.{{item.1.volumes}} is defined
+         - ansible_devices.{{item.1.volumes}}.partitions.{{item.1.volumes}}1 is defined
+         - (ansible_devices.{{item.1.volumes}}.partitions.{{item.1.volumes}}1.holders | length) == 0
+         - inventory_hostname == "{{item.0.servername}}"
+
+##############Dev is based on VG and LV name generated before. This task will run  only of LV is created as holders field will not be empty 
+     - name: Create a xfs filesystem on /dev/vdX1
+       filesystem:
+         fstype: xfs
+         dev: "/dev/{{sc_shortname}}{{ ((servers | selectattr('servername', 'match', item.0.servername) | map (attribute='localstorage') | list ).0 | map (attribute='volumes')|list).index(item.1.volumes) + 1}}cont-vg/{{sc_shortname}}{{ ((servers | selectattr('servername', 'match', item.0.servername) | map (attribute='localstorage') | list ).0 | map (attribute='volumes')|list).index(item.1.volumes) + 1}}cont-lv"
+       with_subelements:
+         - "{{ servers }}"
+         - localstorage
+       when:
+         - ansible_devices.{{item.1.volumes}} is defined
+         - ansible_devices.{{item.1.volumes}}.partitions.{{item.1.volumes}}1 is defined
+         - (ansible_devices.{{item.1.volumes}}.partitions.{{item.1.volumes}}1.holders | length) > 0
+         - inventory_hostname == "{{item.0.servername}}"

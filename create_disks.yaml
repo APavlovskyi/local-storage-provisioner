@@ -1,0 +1,35 @@
+---
+ - name: Create volumes in OSP and attach them to VMs
+   hosts: localhost
+
+   tasks:
+     - name: Include Variable from design.yaml
+       include_vars: var/design.yaml
+#######Create new volumes. 
+#######Size: taking in from var file
+####### Display name: Get FQDN, get last bit of name (pattern for project site-roleXX) and add -volX, where X is index of the additional volume  
+     - name: Create new Volumes in OSP
+       os_volume:
+         state: present
+         cloud: {{ cloud }}
+         availability_zone: nova
+         region_name: regionOne
+         size: "{{ item.1.volume_size }}"
+         display_name: "{{ (item.0.servername.split('.')).0.split('-') | list | last }}-vol{{ ((servers | selectattr('servername', 'match', item.0.servername) | map (attribute='localstorage') | list ).0 | map (attribute='volumes')|list).index(item.1.volumes) + 1}}"
+       with_subelements:
+         - "{{ servers }}"
+         - localstorage
+
+     - name: Attach Volumes New Volumes to servers
+       os_server_volume:
+         state: present
+         cloud: mig
+         availability_zone: nova
+         region_name: regionOne
+         server: "{{item.0.servername}}"
+         volume: "{{ (item.0.servername.split('.')).0.split('-') | list | last }}-vol{{ ((servers | selectattr('servername', 'match', item.0.servername) | map (attribute='localstorage') | list ).0 | map (attribute='volumes')|list).index(item.1.volumes) + 1}}"
+         device: "/dev/{{ item.1.volumes }}"
+       with_subelements:
+         - "{{ servers }}"
+         - localstorage
+       

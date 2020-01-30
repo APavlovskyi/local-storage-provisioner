@@ -1,0 +1,29 @@
+---
+ - name: Create mount point and mount volumes for local-storage
+   hosts: all
+   become: true
+
+   tasks:
+     - name: Include Variable Design File
+       include_vars: var/design.yaml
+
+     - name: Create a local-storage/storage_class directory if this does not exist
+       file:
+         path: /mnt/local-storage
+         state: directory
+         mode: '0755'
+
+#############Mount path should be unic in every node for attached volumes, so i store this on variable design file
+     - name: Mount the disks
+       mount:
+         path: "/mnt/local-storage/{{  storage_class  }}{{ item.1.path }}"
+         src:  "/dev/{{sc_shortname}}{{ ((servers | selectattr('servername', 'match', item.0.servername) | map (attribute='localstorage') | list ).0 | map (attribute='volumes')|list).index(item.1.volumes) + 1}}cont-vg/{{sc_shortname}}{{ ((servers | selectattr('servername', 'match', item.0.servername) | map (attribute='localstorage') | list ).0 | map (attribute='volumes')|list).index(item.1.volumes) + 1}}cont-lv"
+         fstype: xfs
+         state: mounted
+       with_subelements:
+         - "{{ servers }}"
+         - localstorage
+       when: inventory_hostname == "{{ item.0.servername }}"
+
+     - name: Update SELinux Policy at node as required by documentation
+       shell: "chcon -Rv unconfined_u:object_r:svirt_sandbox_file_t:s0 /mnt/local-storage/"
